@@ -1,0 +1,61 @@
+//glass id list
+ilist = [
+
+];
+
+event onClothingUpdated(player, item, slot)
+{
+	if(slot == "HAT")
+	{
+		if(player.clothing.hat.id == INSERT_ITEM_ID_1)
+		{
+			effectManager.clearUIById(INSERT_UI_ID_2, player.id);
+			effectManager.sendUI(INSERT_UI_ID_1, INSERT_UI_KEY_1, player.id);
+		}
+    
+    		elseif(player.clothing.hat.id == INSERT_ITEM_ID_2)
+		{
+			effectManager.clearUIById(INSERT_UI_ID_1, player.id);
+			effectManager.sendUI(INSERT_UI_ID_2, INSERT_UI_KEY_2, player.id);
+		}
+		
+		else
+		{
+			effectManager.clearUIById(INSERT_UI_ID_1, player.id);
+			effectManager.clearUIById(INSERT_UI_ID_2, player.id);
+		}
+	}
+
+	elseif(slot == "GLASSES")
+	{
+		if(ilist.contains(player.clothing.glasses.id) == true)
+		{
+			effectManager.sendUI(INSERT_UI_ID_3, INSERT_UI_KEY_3, player.id);
+		}
+
+		else
+		{
+			effectManager.clearUIById(INSERT_UI_ID_3, player.id);
+		}
+	}
+}
+
+event onPlayerJoined(user)
+{
+	if(user.clothing.hat.id == INSERT_ITEM_ID_1)
+	{
+		effectManager.clearUIById(INSERT_UI_ID_2, user.id);
+		effectManager.sendUI(INSERT_UI_ID_1, INSERT_UI_KEY_1, user.id);
+	}
+
+	elseif(user.clothing.hat.id == INSERT_ITEM_ID_2)
+	{
+		effectManager.clearUIById(INSERT_UI_ID_1, user.id);
+		effectManager.sendUI(INSERT_UI_ID_2, INSERT_UI_KEY_2, user.id);
+	}
+
+	elseif(ilist.contains(user.clothing.glasses.id) == true)
+	{
+		effectManager.sendUI(INSERT_UI_ID_3, INSERT_UI_KEY_3, user.id);
+	}
+}

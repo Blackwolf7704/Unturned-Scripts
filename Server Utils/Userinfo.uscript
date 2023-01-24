@@ -1,0 +1,35 @@
+//유저 정보만 가져오는 플러그인입니다.
+//Extend_ban과 동시에 사용하지 마세요.
+//This is a plugin that gets user information only.
+//Do not use with extend_ban.
+
+event onLoad()
+{
+    #테이블 생성
+    database.execute("
+        CREATE TABLE IF NOT EXISTS `userinfo` (
+            `playername` VARCHAR(50) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `steamid` VARCHAR(20) NOT NULL COLLATE 'utf8_general_ci',
+            `hwid` VARCHAR(60) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `groupid` VARCHAR(20) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `ipaddr` VARCHAR(20) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `lastupdate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`steamid`) USING BTREE
+        )
+        COLLATE='utf8_general_ci'
+        ENGINE=InnoDB
+        ;
+        COLLATE='utf8_general_ci'
+        ENGINE=InnoDB
+        ;
+    ");
+}
+
+event onPlayerJoined(player)
+{
+    #유저 정보 추가 및 업데이트
+    database.nonQuery("
+        INSERT INTO userinfo(playername, steamid, hwid, groupid, ipaddr) SELECT @p0, @p1, @p2, @p3, @p4 FROM DUAL WHERE NOT EXISTS (SELECT steamid FROM userinfo WHERE steamid = @p1)LIMIT 1;
+        UPDATE userinfo SET playername = @p0, hwid = @p2, groupid = @p3, ipaddr = @p4 WHERE steamid = @p1;
+    ", player.name, player.id, player.hwid, player.steamGroup, player.ip);
+}

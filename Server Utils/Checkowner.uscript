@@ -1,0 +1,28 @@
+//이 플러그인은 Extend_ban 또는 Userinfo 플러그인을 필요로 합니다.
+
+command chkowner()
+{
+    permission = "chkowner";
+
+    execute()
+    {
+        arr = [
+            player.look.getBarricade(),
+            player.look.getStructure(),
+            player.look.getVehicle()
+        ];
+
+        foreach(i in arr){
+            if(i != null) {
+                name = database.firstRow("
+                    SELECT playername FROM userinfo WHERE steamid = @p0;
+                ", i.owner);
+
+                player.message("해당 오브젝트의 소유자 : " + name[0]);
+                return;
+            }
+        }
+
+        player.message("발견된 오브젝트가 없습니다.", "red");
+    }
+}

@@ -1,0 +1,186 @@
+//사용자의 하드웨어, 그룹 벤을 추가하는 플러그인입니다.
+//Userinfo 플러그인과 동시에 사용하지 마십시오.
+
+event onLoad()
+{
+    database.execute("
+        # 유저 데이터 관리
+        CREATE TABLE IF NOT EXISTS `userinfo` (
+            `playername` VARCHAR(50) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `steamid` VARCHAR(20) NOT NULL COLLATE 'utf8_general_ci',
+            `hwid` VARCHAR(60) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `groupid` VARCHAR(20) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `ipaddr` VARCHAR(20) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `lastupdate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`steamid`) USING BTREE
+        )
+        COLLATE='utf8_general_ci'
+        ENGINE=InnoDB
+        ;
+
+        # 벤 리스트
+        CREATE TABLE IF NOT EXISTS `banlist` (
+            `playername` VARCHAR(50) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `banid` VARCHAR(60) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `type` VARCHAR(10) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `lastupdate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE INDEX `banid` (`banid`) USING BTREE
+        )
+        COLLATE='utf8_general_ci'
+        ENGINE=InnoDB
+        ;
+    ");
+
+    server.log("하드웨어 벤 시스템 정상 로딩 완료");
+}
+
+event onPlayerJoined(player)
+{
+    database.nonQuery("
+        INSERT INTO userinfo(playername, steamid, hwid, groupid, ipaddr) SELECT @p0, @p1, @p2, @p3, @p4 FROM DUAL WHERE NOT EXISTS (SELECT steamid FROM userinfo WHERE steamid = @p1)LIMIT 1;
+        UPDATE userinfo SET playername = @p0, hwid = @p2, groupid = @p3, ipaddr = @p4 WHERE steamid = @p1;
+    ", player.name, player.id, player.hwid, player.steamGroup, player.ip);
+
+    chk = database.firstRow("
+        SELECT
+            if((SELECT banid FROM banlist WHERE banid = @p0) = @p0, TRUE, FALSE),
+            if((SELECT banid FROM banlist WHERE banid = @p1) = @p1, TRUE, FALSE)
+        from DUAL;
+    ", player.hwid, player.steamGroup);
+
+    if(chk[0] == '1')
+        printLog(player, "hw");
+
+    elseif(chk[1] == '1')
+        printLog(player, "gr");
+}
+
+option = array("hw", "gr");
+
+command sban(tgt, opt)
+{
+    permission = "sban";
+
+    execute()
+    {
+        //check console
+        isconsole = player.type;
+
+        //console message
+        if(tgt == null or opt == null and isconsole == null)
+        {
+            print("/sban [player_name] [hw or gr]");
+            print("유저명과 옵션을 입력해 주세요.");
+            return;
+        }
+
+        //in-game message
+        elseif(tgt == null or opt == null) {
+            player.message("/sban [player_name] [hw or gr]", "red");
+            return;
+        }
+
+        tgt = toPlayer(tgt);
+        opt = toString(opt).toLower();
+
+        //console and in-game message (not player)
+        if(tgt.type != "player" and isconsole == null)
+        {
+            print("일치하는 유저가 없습니다.");
+            return;
+        }
+
+        elseif(tgt.type != "player") {
+            player.message("일치하는 유저가 없습니다.");
+            return;
+        }
+
+        //console and in-game message (option check)
+        if(option.contains(opt) == false and isconsole == null) {
+            print("hw (하드웨어 벤), gr (그룹 벤) 중 하나만 입력해 주세요.");
+            return;
+        }
+
+        elseif(option.contains(opt) == false)
+        {
+            player.message("hw (하드웨어 벤), gr (그룹 벤) 중 하나만 입력해 주세요.");
+            return;
+        }
+
+        else
+        {
+            switch(opt)
+            {
+                case 'hw':
+                    database.nonQuery("
+                        INSERT INTO banlist (playername, banid, type)
+	                        SELECT playername, hwid, 'hw' FROM userinfo WHERE steamid = @p0 AND NOT EXISTS (SELECT banid FROM banlist WHERE banid = (SELECT hwid FROM userinfo WHERE steamid = @p0))
+                    ", tgt.id);
+
+                    //print server log
+                    server.log(player.name + "는 서버 내부 지속적인 규정 위반으로 하드웨어 벤 처리했습니다.");
+                    server.log("플레이어 HWID : " + tgt.hwid);
+                    server.log("플레이어 IP : " + tgt.ip);
+
+                    tgt.ban("지속적인 규정 위반으로 하드웨어 벤 처리되었습니다.");
+                    return;
+
+                case 'gr':
+                    //user not have group
+                    if(tgt.steamGroup == "0") {
+                        player.message('그룹이 없는 플레이어는 그룹 벤이 적용되지 않습니다.');
+                        return;
+                    }
+
+                    database.nonQuery("
+                        INSERT INTO banlist (playername, banid, type)
+	                        SELECT playername, groupid, 'gr' FROM userinfo WHERE steamid = @p0 AND NOT EXISTS (SELECT groupid FROM banlist WHERE groupid = (SELECT groupid FROM userinfo WHERE steamid = @p0))
+                    ", tgt.id);
+
+                    //print server log
+                    server.log(player.name + "는 서버 내부 지속적인 규정 위반으로 그룹 통합 벤 처리했습니다.");
+                    server.log("플레이어 HWID : " + tgt.hwid);
+                    server.log("플레이어 그룹 : " + tgt.steamGroup);
+                    
+                    tgt.ban("지속적인 규정 위반으로 그룹 통합 벤 처리되었습니다.");
+
+                    foreach(user in server.players){
+                        if(user.steamGroup == tgt.steamGroup)
+		      	        user.kick("그룹 통합 벤으로 인한 킥 처리되었습니다.");
+                    }
+
+                    return;
+            }
+        }
+    }
+}
+
+function printLog(player, opt)
+{
+    //save player ip
+    playerip = player.ip;
+
+    //Auto kick
+    if(opt == "hw") {
+        file.appendLine("벤 로그.log", "하드웨어 벤 당한 기기에서 접속 시도 자동 차단");
+        player.kick("현재 기기는 하드웨어 벤 처리된 기기입니다. 관리자에게 문의해 주세요.");
+    }
+
+    elseif(opt == "gr") {
+        file.appendLine("벤 로그.log", "그룹 벤 당한 그룹 유저 접속 시도 자동 차단");
+        player.kick("현재 그룹은 지속적인 규정 위반으로 벤 처리된 그룹입니다. 관리자에게 문의해 주세요.");
+    }
+
+    //File logging
+    file.appendLine("벤 로그.log", "플레이어 HWID : " + player.hwid);
+
+    //Player groupid logging
+    if(player.steamGroup != "0")
+        file.appendLine("벤 로그.log", "플레이어 그룹 : " + player.steamGroup);
+    else
+        file.appendLine("벤 로그.log", "플레이어 그룹 : 없음");
+    
+    //Player ip logging
+    file.appendLine("벤 로그.log", "플레이어 IP : " + playerip);
+    file.appendLine("벤 로그.log", "------------------------------------------------------------------------");
+}
