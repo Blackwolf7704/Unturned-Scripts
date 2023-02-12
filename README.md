@@ -6,7 +6,7 @@ IMPORTANT : I am not a developer of uscript2. I'm just using this script to crea
 
 ----------------------------------------------------------------------------------------
 
-UI 창작마당 링크 (하단 참)
+UI 창작마당 링크 (하단 참조)
 IN-Game UI : [Workshop Link](https://steamcommunity.com/sharedfiles/filedetails/?id=2932325139)
 
 
