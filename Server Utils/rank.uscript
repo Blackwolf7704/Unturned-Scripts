@@ -1,0 +1,123 @@
+event onLoad()
+{
+    database.execute("
+        CREATE TABLE IF NOT EXISTS `ranking` (
+            `playerid` VARCHAR(50) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `playername` VARCHAR(50) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `prank` INT(20) NOT NULL DEFAULT '0',
+            `zombie` INT(20) NOT NULL DEFAULT '0',
+            `mzombie` INT(20) NOT NULL DEFAULT '0',
+            `resource` INT(20) NOT NULL DEFAULT '0',
+            `harvest` INT(20) NOT NULL DEFAULT '0',
+            `fish` INT(20) NOT NULL DEFAULT '0',
+            `score` DECIMAL(20,2) NOT NULL DEFAULT '0.00'
+        )
+        COLLATE='utf8_general_ci'
+        ENGINE=InnoDB
+        ;
+    ");
+
+    server.log("랭킹 시스템 정상 로딩 완료");
+}
+
+event onPlayerJoined(player)
+{
+    database.nonQuery("
+        INSERT INTO ranking(playerid, playername) SELECT @p0, @p1 FROM DUAL WHERE NOT EXISTS (SELECT playerid FROM ranking WHERE playerid = @p0)LIMIT 1;
+        UPDATE ranking SET playername = @p1 WHERE playerid = @p0;
+    ", player.id, player.name);
+
+    showRankUI(player);
+    //player.effects.sendUI(, 1);
+}
+
+
+//Player Event List
+event onZombieKilled(player)
+{
+    Player_Data(player, "zombie");
+    showRankUI(player);
+}
+
+event onMegaZombieKilled(player)
+{
+    Player_Data(player, "mzombie");
+    showRankUI(player);
+}
+
+event onTreeChopped(player)
+{
+    Player_Data(player, "resource");
+    showRankUI(player);
+}
+
+event onRockMined(player)
+{
+    Player_Data(player, "resource");
+    showRankUI(player);
+}
+
+event onFishCaught(player)
+{
+    Player_Data(player, "fish");
+    showRankUI(player);
+}
+
+event onHarvested(player)
+{
+    Player_Data(player, "harvest");
+    showRankUI(player);
+}
+
+//Rank_Name Setting (must keep order)
+RankName = [
+    "종합랭킹", //rank
+    "좀비",     //zombie
+    "메가좀비", //megazombie
+    "자원채집", //resource
+    "작물수확", //harvest
+    "낚시"      //fishing
+];
+
+//Ranking Update Event
+event onInterval(300)
+{
+    //5분마다 랭킹 업데이트 (실시간 랭킹 업데이트의 서버 부하 저하)
+    server.log("랭킹 업데이트 완료");
+    Update_Rank();
+
+    foreach(player in server.players){
+        showRankUI(player);
+    }
+}
+
+//Function List
+function Player_Data(player, opt)
+{
+    database.execute("
+        UPDATE ranking SET {1} = {1} + 1 WHERE playerid = '{0}';
+    ".format(player.id, opt));
+}
+
+function showRankUI(player)
+{
+    RankData = database.firstRow("
+        SELECT prank, zombie, mzombie, resource, harvest, fish FROM ranking WHERE playerid = @p0;
+    ", player.id);
+
+    //순서대로 출력 : 종합랭킹, 좀비, 메가좀비, 자원채집, 작물수확, 낚시
+    player.effects.sendUI(10000, 0);
+    player.effects.sendUI(10001, 1, RankName[0], RankData[0], RankName[1], RankData[1]);
+    player.effects.sendUI(10002, 2, RankName[2], RankData[2], RankName[3], RankData[3]);
+    player.effects.sendUI(10003, 3, RankName[4], RankData[4], RankName[5], RankData[5]);
+}
+
+function Update_Rank()
+{
+    database.nonQuery("
+        UPDATE ranking SET score = (zombie + mzombie * 2 + (resource + fish) * 0.5);
+
+        SELECT @RANK:=0;
+        UPDATE ranking SET prank = @RANK:= @RANK + 1 ORDER BY score DESC;
+    ");
+}
