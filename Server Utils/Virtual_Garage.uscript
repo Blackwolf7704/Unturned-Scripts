@@ -1,0 +1,175 @@
+event onLoad()
+{
+    database.execute("
+        CREATE TABLE IF NOT EXISTS `vgarage` (
+            `steamid` VARCHAR(50) NOT NULL COLLATE 'utf8_general_ci',
+            `playername` VARCHAR(50) NULL DEFAULT NULL COLLATE 'utf8_general_ci',
+            `sponsor_lvl` INT(3) NOT NULL DEFAULT '0',
+            `slot1` INT(6) NOT NULL DEFAULT '0',
+            `slot2` INT(6) NOT NULL DEFAULT '0',
+            `slot3` INT(6) NOT NULL DEFAULT '0',
+            `lastupdate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`steamid`) USING BTREE
+        )
+        COLLATE='utf8_general_ci'
+        ENGINE=InnoDB
+        ;
+    ");
+}
+
+event onPlayerJoined(player)
+{
+    database.nonQuery("
+        INSERT INTO vgarage(steamid, playername) SELECT @p0, @p1 FROM DUAL WHERE NOT EXISTS (SELECT steamid FROM vgarage WHERE steamid = @p0)LIMIT 1;
+        UPDATE vgarage SET playername = @p1 WHERE steamid = @p0;
+    ", player.id, player.name);
+}
+
+slot_code = [
+    1,
+    2,
+    3
+];
+
+//커맨드
+command vin(slot) //가상차고에 차량 넣기
+{
+    permission = "vin";
+
+    execute()
+    {
+        if(player.getData("override") != 0 and slot == "y")
+        {
+            veh = player.look.getVehicle();
+            veh.destroy();
+
+            vcode = database.firstRow("
+                SELECT {0} FROM vgarage WHERE steamid = @p0;
+            ".format("slot" + player.getData("slot_num")), player.id);
+
+            database.nonQuery("
+                UPDATE vgarage SET {0} = @p0 WHERE steamid = @p1;
+            ".format("slot" + player.getData("slot_num")), veh.id, player.id);
+
+            player.setData("override", 0);
+
+            player.message("가창차고에 있는 차량을 덮어씌웠습니다.", "red");
+            return 0;
+        }
+
+        elseif(player.getData("override") != 0 and slot == "n")
+        {
+            player.message("차량을 덮어씌우지 않았습니다.", "red");
+
+            player.setData("override", 0);
+            return 0;
+        }
+
+        elseif(slot == "y" or slot == "n")
+        {
+            player.message("차량 덮어씌우기 요청이 없습니다!", "red");
+            return 1;
+        }
+
+        if(slot_code.contains(slot.toNumber()) == false)
+        {
+            player.message("올바른 슬롯이 아닙니다!", "red");
+            player.message("슬롯 번호 : 1 ~ 3", "red");
+            return 1;
+        }
+
+        else
+        {
+            if(player.look.getVehicle() == null)
+            {
+                player.message("보고 있는 차량이 없습니다!", "red");
+                return 1;
+            }
+
+            elseif(player.look.getVehicle().owner != player.id)
+            {
+                player.message("해당 차량은 본인의 소유가 아닙니다!", "red");
+                return 1;
+            }
+
+            else
+            {
+                veh = player.look.getVehicle();
+
+                vcode = database.firstRow("
+                    SELECT {0} FROM vgarage WHERE steamid = @p0;
+                ".format("slot" + slot), player.id);
+
+                if(vcode[0].toNumber() == 0)
+                {
+                    veh.destroy();
+
+                    database.nonQuery("
+                        UPDATE vgarage SET {0} = @p0 WHERE steamid = @p1;
+                    ".format("slot" + slot), veh.id, player.id);
+
+                    player.setData("override", 0);
+                    player.message("차고에 차량을 넣었습니다.", "red");
+
+                    return 0;
+                }
+
+                else
+                {
+                    player.message("이미 해당 차고에 차량을 보유중입니다.", "red");
+                    player.message("차량을 덮어씌우겠습니까? (y or n)");
+
+                    player.setData("override", 1);
+                    player.setData("slot_num", slot);
+                    return 1;
+                }
+            }
+        }
+    }
+}
+
+command vout(slot) //가상차고에서 차량 빼기
+{
+    permission = "vout";
+
+    execute()
+    {
+        vcode = database.firstRow("
+            SELECT {0} FROM vgarage WHERE steamid = @p0;
+        ".format("slot" + slot), player.id);
+
+        if(vcode[0] == 0)
+        {
+            player.message("해당 차고에는 아무 차량도 존재하지 않습니다!", "red");
+            return 1;
+        }
+
+        else
+        {
+            player.message("차량을 꺼냈습니다!");
+            spawner.spawnVehicle(vcode[0].toNumber(), vector3(player.position.x, player.position.y + 10, player.position.z));
+
+            database.nonQuery("
+                UPDATE vgarage SET {0} = 0 WHERE steamid = @p0;
+            ".format("slot" + slot), player.id);
+        }
+    }
+}
+
+command vlist()
+{
+    permission = "vlist";
+
+    execute()
+    {
+        vlist = database.firstRow("
+            SELECT slot1, slot2, slot3 FROM vgarage WHERE steamid = @p0;
+        ", player.id);
+
+        cnt = 0;
+        foreach(i in vlist) {
+            cnt = cnt + 1;
+            player.message(cnt + "번 슬롯의 차량코드" + i);
+        }
+    }
+}
