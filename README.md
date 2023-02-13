@@ -21,6 +21,7 @@ Description of each folder and plugins
    - Item_vision : Apply UI when equipping items
    - Rank : In-Game Ranking UI
       -  Rank script is only PVE using (MySql Server 5.5 required, IN-Game UI workshop required)
+   - Virtual Garage : Provide virtual garage function
 ----------------------------------------------------------------------------------------
 
 Uscript2를 이용한 언턴드 스크립트 입니다.
@@ -35,3 +36,4 @@ Uscript2를 이용한 언턴드 스크립트 입니다.
    - Item_vison : 아이템 착용시 UI 적용
    - Rank : 인게임 랭킹 UI
       - Rank는 PVE 전용으로 사용됩니다. (MySql Server 5.5, IN-Game UI 창작마당 필수)
+   - Virtual Garage : 가상차고 기능 제
